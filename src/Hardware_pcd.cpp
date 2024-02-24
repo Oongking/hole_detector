@@ -349,12 +349,20 @@ int main(int argc, char** argv)
 
         // 设置float型变量
         // set IFloat variable
+        // float fExposureTime = 0.0f;
+        // printf("please input the exposure time to set: ");
+        // if(0 == scanf("%f", &fExposureTime))
+        // {
+        //     printf("Input Format Error!");
+        //     break;
+        // }
+
         float fExposureTime = 0.0f;
-        printf("please input the exposure time to set: ");
-        if(0 == scanf("%f", &fExposureTime))
-        {
-            printf("Input Format Error!");
-            break;
+        if (nh.getParam("/Hardware_pcd/fExposureTime", fExposureTime)) {
+            ROS_INFO("fExposureTime: %f", fExposureTime);
+        } else {
+            ROS_ERROR("Failed to get parameter 'fExposureTime'");
+            fExposureTime = 1500.0f;
         }
 
         nRet = MV_CC_SetFloatValue(handle, "ExposureTime", fExposureTime);

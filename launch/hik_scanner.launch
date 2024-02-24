@@ -1,16 +1,27 @@
 <launch>
-    <arg name="on_hardware" default="false" />
+    <arg name="on_hardware" default="true" />
 
 
     <!-- <arg name="threshold_value" value="127" /> -->
     <node name="Hardware_pcd" pkg="hole_detector" type="Hardware_pcd" output="screen">
         <!-- <param name="threshold_value" type="int" value="$(arg threshold_value)"/> -->
+        <!-- <param name="threshold_value" type="int" value="127"/> -->
         <param name="threshold_value" type="int" value="127"/>
+        <param name="fExposureTime" type="double" value="1500"/>
+        
     </node> 
 
 
     <node name="mergepcd_gantry_track" pkg="hole_detector" type="mergepcd_gantry_track.py" output="screen">
         <param name="on_hardware" type="bool" value="$(arg on_hardware)"/>
+
+        <!-- Box Pose/Size -->
+        <param name="box_posx" type="double"   value="0.2"/>
+        <param name="box_posy" type="double"   value="-0.22"/>
+        <param name="box_posz" type="double"   value="0.88"/>
+        <param name="box_sizex" type="double"   value="0.5"/>
+        <param name="box_sizey" type="double"   value="0.5"/>
+        <param name="box_sizez" type="double"   value="0.1"/>
 
         <!-- Remove Outlier From Raw Pointcloud -->
         <param name="stat_outlier_nb" type="int"            value="10"/>
@@ -31,6 +42,9 @@
         <param name="clus_size_limit" type="double"          value="0.05"/>
 
     </node> 
+
+    <!-- <node name = "rqt_gui" pkg = "rqt_gui" type = "rqt_gui" respawn = "false" output = "screen" 
+            args = "-perspective $(find hole_detector)/rqt_config/command_hole.perspective"/> -->
 
 
 

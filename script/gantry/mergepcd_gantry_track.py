@@ -228,7 +228,16 @@ class Hole_detector:
         # self.box = fixbox(np.eye(3),[0.05, -0.2, 0.88],0,x=0.2,y=0.5,z = 0.1)
 
         # self.box = fixbox(np.eye(3),[0.05, -0.2, 0.88+0.59],0,x=0.2,y=0.5,z = 0.1)
-        self.box = fixbox(np.eye(3),[0.2, -0.2, 0.88],0,x=0.5,y=0.5,z = 0.1)
+
+
+        self.box = fixbox(np.eye(3),
+                          [rospy.get_param("~box_posx",0.2),
+                            rospy.get_param("~box_posy",-0.2),
+                            rospy.get_param("~box_posz",0.88)]
+                            ,0, # offset z
+                            x = rospy.get_param("~box_sizex",0.5),
+                            y = rospy.get_param("~box_sizey",0.5),
+                            z = rospy.get_param("~box_sizez",0.1))
 
 
         
@@ -284,9 +293,29 @@ class Hole_detector:
 
         return pcds
 
+    def circle_fiting(self,points):
+
+        x = points[:,0].T 
+        y = points[:,1].T
+        xy = points[:,:2]
+
+
+        # print(f"x : {x.shape}")
+        # print(f"y : {y.shape}")
+        # print(f"xy : {xy.shape}")
+        # print(f"xy : {np.power(np.linalg.norm(xy,axis=1),2)}")
+        B = np.power(np.linalg.norm(xy,axis=1),2).T
+        A = np.array([x*2, y*2,np.ones(x.shape[0])]).T
+        # print(f"A : {A}")
+        # print(f"B : {B}")
+        # print(f"np.linalg.lstsq(A,B) : {np.linalg.lstsq(A,B, rcond=None)[0]}")
+
+
+        return np.linalg.lstsq(A,B, rcond=None)[0][:2]
+
     def find_hole(self,pcd_original):
         # Preprocess pointcloud
-        o3d.visualization.draw_geometries([pcd_original,self.box,Realcoor])
+        # o3d.visualization.draw_geometries([pcd_original,self.box,Realcoor])
 
         pcd = pcd_original.crop(self.box)
         # pcd = pcd.voxel_down_sample(0.003)
@@ -305,7 +334,7 @@ class Hole_detector:
         # find plane and project point to plane
         [a, b, c, d] = plane_model
         print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
-
+        pcdcen = pcdcen.select_by_index(inliers)
         xyz = np.asarray(pcdcen.points)
         # d : distance to plan  n : Normal vector of plane
         d = (a*xyz[:,0]+b*xyz[:,1]+c*xyz[:,2]+d)/np.linalg.norm([a,b,c])
@@ -316,6 +345,7 @@ class Hole_detector:
 
         pcdcen.points = o3d.utility.Vector3dVector(np.add(xyz,shift, dtype=np.float64))
         # pcdcen = pcdcen.voxel_down_sample(0.001)
+        o3d.visualization.draw_geometries([pcdcen,Realcoor])
 
 
         # find boundarys in tensor
@@ -335,6 +365,10 @@ class Hole_detector:
         centers = []
         center_point = []
         for i,hole in enumerate(holes):
+            # Need Transform to plane first
+            # [x,y] = circle_fiting(np.array(hole.points))
+            # center = [x,y,0]
+
             color = np.random.randint(10, size=3)
             center = hole.get_center()
             center_point.append(center)
