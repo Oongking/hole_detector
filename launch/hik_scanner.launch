@@ -2,14 +2,34 @@
     <arg name="on_hardware" default="false" />
 
 
-    <arg name="threshold_value" value="127" />
+    <!-- <arg name="threshold_value" value="127" /> -->
     <node name="Hardware_pcd" pkg="hole_detector" type="Hardware_pcd" output="screen">
-        <param name="threshold_value" type="int" value="$(arg threshold_value)"/>
+        <!-- <param name="threshold_value" type="int" value="$(arg threshold_value)"/> -->
+        <param name="threshold_value" type="int" value="127"/>
     </node> 
 
 
     <node name="mergepcd_gantry_track" pkg="hole_detector" type="mergepcd_gantry_track.py" output="screen">
         <param name="on_hardware" type="bool" value="$(arg on_hardware)"/>
+
+        <!-- Remove Outlier From Raw Pointcloud -->
+        <param name="stat_outlier_nb" type="int"            value="10"/>
+        <param name="stat_outlier_std_ratio" type="double"   value="3.0"/>
+
+        <!-- Plane Threshold Distance -->
+        <param name="plane_thres" type="double"              value="0.005"/>
+
+        <!-- Boundary Config -->
+        <param name="boundary_radius" type="double"          value="0.015"/>
+        <param name="boundary_max_nn" type="int"            value="30"/>
+
+        <!-- Cluster Config -->
+        <param name="clus_radius" type="double"              value="0.005"/>
+        <param name="clus_min_points" type="int"            value="5"/>
+        <param name="clus_point_up_limit" type="int"        value="100"/>
+        <param name="clus_point_low_limit" type="int"       value="30"/>
+        <param name="clus_size_limit" type="double"          value="0.05"/>
+
     </node> 
 
 

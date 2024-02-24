@@ -261,7 +261,7 @@ int main(int argc, char** argv)
     ros::Publisher pointcloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/hik/pointcloud2", 1);
 
     int param_value;
-    if (nh.getParam("threshold_value", param_value)) {
+    if (nh.getParam("/Hardware_pcd/threshold_value", param_value)) {
         ROS_INFO("threshold_value: %d", param_value);
     } else {
         ROS_ERROR("Failed to get parameter 'threshold_value'");

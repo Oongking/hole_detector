@@ -28,7 +28,7 @@ import os
 
 rospy.init_node('merge_pcd', anonymous=True)
 
-on_hardware = rospy.get_param("~on_hardware",False)
+on_hardware = rospy.get_param("~on_hardware",True)
 
 if on_hardware:
     from gantry_proxy.srv import aim_pose
@@ -68,6 +68,8 @@ class hikrobot_merge():
     def __init__(self):
 
         rospy.loginfo(":: Starting hik ::")
+
+        self.limit_box = fixbox(np.eye(3),[0,0,0],0,x=10,y=10,z =2)
 
         self.world2gantry = np.eye(4)
         self.world2gantry[:3,:3] = Rx(-90)
@@ -228,7 +230,37 @@ class Hole_detector:
         # self.box = fixbox(np.eye(3),[0.05, -0.2, 0.88+0.59],0,x=0.2,y=0.5,z = 0.1)
         self.box = fixbox(np.eye(3),[0.2, -0.2, 0.88],0,x=0.5,y=0.5,z = 0.1)
 
-    def Cluster_hole(self,pcd, Clus_eps=0.005, Clus_min_points=5, Out_nb_neighbors = 20, Out_std_ratio = 1.0, point_upper_limit = 100, point_lower_limit = 30, obj_size = 0.05):
+
+        
+        self.stat_outlier_nb = rospy.get_param("~stat_outlier_nb",10)
+        self.stat_outlier_std_ratio = rospy.get_param("~stat_outlier_std_ratio",3.0)
+
+        self.plane_thres = rospy.get_param("~plane_thres",0.005)
+
+        self.boundary_radius = rospy.get_param("~boundary_radius",0.015)
+        self.boundary_max_nn = rospy.get_param("~boundary_max_nn",30)
+
+        self.clus_radius = rospy.get_param("~clus_radius",0.005)
+        self.clus_min_points = rospy.get_param("~clus_min_points",5)
+        self.clus_point_up_limit = rospy.get_param("~clus_point_up_limit",100)
+        self.clus_point_low_limit = rospy.get_param("~clus_point_low_limit",30)
+        self.clus_size_limit = rospy.get_param("~clus_size_limit",0.05)
+
+
+
+    def Cluster_hole(self,pcd):
+
+        Clus_eps = self.clus_radius 
+        Clus_min_points = self.clus_min_points
+
+        # Out_nb_neighbors = 20
+        # Out_std_ratio = 1.0 
+
+        point_upper_limit = self.clus_point_up_limit
+        point_lower_limit = self.clus_point_low_limit
+        obj_size = self.clus_size_limit
+
+
         pcds = []
         
         labels = np.array(pcd.cluster_dbscan(eps = Clus_eps, min_points = Clus_min_points, print_progress=False))
@@ -260,13 +292,13 @@ class Hole_detector:
         # pcd = pcd.voxel_down_sample(0.003)
         o3d.visualization.draw_geometries([pcd,Realcoor])
 
-        pcdcen, ind = pcd.remove_statistical_outlier(nb_neighbors = 10,
-                                                    std_ratio = 3.0)
+        pcdcen, ind = pcd.remove_statistical_outlier(nb_neighbors = self.stat_outlier_nb,
+                                                    std_ratio = self.stat_outlier_std_ratio)
         
         o3d.visualization.draw_geometries([pcdcen,Realcoor])
 
 
-        plane_model, inliers = pcdcen.segment_plane(distance_threshold=0.005,
+        plane_model, inliers = pcdcen.segment_plane(distance_threshold=self.plane_thres,
                                          ransac_n=3,
                                          num_iterations=1000)
 
@@ -288,8 +320,10 @@ class Hole_detector:
 
         # find boundarys in tensor
         pcd_t = o3d.t.geometry.PointCloud.from_legacy(pcdcen, o3d.core.float64)
-        pcd_t.estimate_normals(max_nn=30, radius=1.4*0.003)
-        boundarys, mask = pcd_t.compute_boundary_points(0.015, 30)
+        pcd_t.estimate_normals(max_nn=30, radius=1.4*0.001)
+
+        boundarys, mask = pcd_t.compute_boundary_points(self.boundary_radius, self.boundary_max_nn)
+
         print(f"Detect {boundarys.point.positions.shape[0]} bnoundary points from {pcd_t.point.positions.shape[0]} points.")
 
         boundarys_pcd = boundarys.to_legacy()
@@ -421,7 +455,10 @@ while not rospy.is_shutdown():
         break
 
     if waitkeyboard & 0xFF==ord('t'):
-        mergpcd = scanner.get_mergpcd()
+        mergpcd_full = scanner.get_mergpcd()
+        o3d.visualization.draw_geometries([mergpcd_full,Realcoor,scanner.limit_box])
+        mergpcd = mergpcd_full.crop(scanner.limit_box)
+        o3d.visualization.draw_geometries([mergpcd_full,Realcoor])
         o3d.visualization.draw_geometries([mergpcd,Realcoor])
 
         center_point,plane_normal = hole_detector.find_hole(mergpcd)
