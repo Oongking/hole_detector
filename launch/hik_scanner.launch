@@ -1,0 +1,17 @@
+<launch>
+    <arg name="on_hardware" default="false" />
+
+
+    <arg name="threshold_value" value="127" />
+    <node name="Hardware_pcd" pkg="hole_detector" type="Hardware_pcd" output="screen">
+        <param name="threshold_value" type="int" value="$(arg threshold_value)"/>
+    </node> 
+
+
+    <node name="mergepcd_gantry_track" pkg="hole_detector" type="mergepcd_gantry_track.py" output="screen">
+        <param name="on_hardware" type="bool" value="$(arg on_hardware)"/>
+    </node> 
+
+
+
+</launch>

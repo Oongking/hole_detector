@@ -100,13 +100,13 @@ sensor_msgs::PointCloud2 createPointCloud2Msg(const open3d::geometry::PointCloud
 }
 
 
-open3d::geometry::PointCloud calculate_pcd(cv::Mat& cb_img){
+open3d::geometry::PointCloud calculate_pcd(cv::Mat& cb_img, int& param_value){
 
     cv::Mat imageUndistorted; // Will be the undistorted version of the above image.
     undistort(cb_img, imageUndistorted, cameraMatrix, distCoeffs);
 
     cv::Mat thres_img;
-    cv::threshold(imageUndistorted,thres_img,127,255,cv::THRESH_BINARY);
+    cv::threshold(imageUndistorted,thres_img,param_value,255,cv::THRESH_BINARY);
     // cv::imshow("test", resizePercent(thres_img,50));
     // cv::waitKey(0);
 
@@ -259,6 +259,14 @@ int main(int argc, char** argv)
     // Create a publisher for the compressed image
     ros::Publisher image_pub = nh.advertise<sensor_msgs::Image>("/hik/image_raw", 1);
     ros::Publisher pointcloud_pub = nh.advertise<sensor_msgs::PointCloud2>("/hik/pointcloud2", 1);
+
+    int param_value;
+    if (nh.getParam("threshold_value", param_value)) {
+        ROS_INFO("threshold_value: %d", param_value);
+    } else {
+        ROS_ERROR("Failed to get parameter 'threshold_value'");
+        param_value = 127;
+    }
     
     do 
     {
@@ -448,7 +456,7 @@ int main(int argc, char** argv)
                 sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", img).toImageMsg();
                 image_pub.publish(msg);
 
-                open3d::geometry::PointCloud pcd_out = calculate_pcd(img);
+                open3d::geometry::PointCloud pcd_out = calculate_pcd(img, param_value);
                 // std::shared_ptr<open3d::geometry::TriangleMesh> Realcoor = open3d::geometry::TriangleMesh::CreateCoordinateFrame(0.1);
                 // open3d::visualization::DrawGeometries({std::make_shared<open3d::geometry::PointCloud>(pcd_out),Realcoor});
                 sensor_msgs::PointCloud2 ros_pc2 = createPointCloud2Msg(pcd_out);
