@@ -29,6 +29,7 @@ import os
 rospy.init_node('merge_pcd', anonymous=True)
 
 on_hardware = rospy.get_param("~on_hardware",True)
+scan_speed = rospy.get_param("~scan_speed",1.0)
 
 if on_hardware:
     from gantry_proxy.srv import aim_pose
@@ -469,7 +470,7 @@ def get_next_file_number(folder_path,name):
         return 0
     
 folder_path = f"/home/irap/SCG_ws/src/hole_detector/data/room/mock_test"
-data_name = "mock1cm_"
+data_name = f"mock{int(scan_speed)}cm_filter_"
 if on_hardware:
     num = get_next_file_number(folder_path,f"{data_name}")
 else:
@@ -514,11 +515,12 @@ while not rospy.is_shutdown():
     
     if waitkeyboard & 0xFF==ord('s'):
         mergpcd = scanner.get_mergpcd()
-        o3d.visualization.draw_geometries([mergpcd,Realcoor])
-        o3d.io.write_point_cloud(f"{folder_path}/{data_name}{num}.pcd", mergpcd)
-        scanner.reset()
-        num +=1
-        print(f"Save {data_name}{num-1} Next num : {num}")
+        if not mergpcd.is_empty():
+            o3d.visualization.draw_geometries([mergpcd,Realcoor])
+            o3d.io.write_point_cloud(f"{folder_path}/{data_name}{num}.pcd", mergpcd)
+            scanner.reset()
+            num +=1
+            print(f"Save {data_name}{num-1} Next num : {num}")
         
     if waitkeyboard & 0xFF==ord('p'):
         mergpcd = scanner.get_mergpcd()
