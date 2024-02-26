@@ -242,17 +242,21 @@ class Hole_detector:
 
         
         self.stat_outlier_nb = rospy.get_param("~stat_outlier_nb",10)
-        self.stat_outlier_std_ratio = rospy.get_param("~stat_outlier_std_ratio",3.0)
+        self.stat_outlier_std_ratio = rospy.get_param("~stat_outlier_std_ratio",4.0)
 
         self.plane_thres = rospy.get_param("~plane_thres",0.005)
 
+        self.mesh_radius = rospy.get_param("~mesh_radius",0.004)
+        self.mesh_hole_size = rospy.get_param("~mesh_hole_size",0.01)
+        
         self.boundary_radius = rospy.get_param("~boundary_radius",0.015)
         self.boundary_max_nn = rospy.get_param("~boundary_max_nn",30)
+        self.boundary_angle = rospy.get_param("~boundary_angle",70)
 
         self.clus_radius = rospy.get_param("~clus_radius",0.005)
         self.clus_min_points = rospy.get_param("~clus_min_points",5)
-        self.clus_point_up_limit = rospy.get_param("~clus_point_up_limit",100)
-        self.clus_point_low_limit = rospy.get_param("~clus_point_low_limit",30)
+        self.clus_point_up_limit = rospy.get_param("~clus_point_up_limit",150)
+        self.clus_point_low_limit = rospy.get_param("~clus_point_low_limit",60)
         self.clus_size_limit = rospy.get_param("~clus_size_limit",0.05)
 
 
@@ -309,9 +313,14 @@ class Hole_detector:
         # print(f"A : {A}")
         # print(f"B : {B}")
         # print(f"np.linalg.lstsq(A,B) : {np.linalg.lstsq(A,B, rcond=None)[0]}")
+        ans = np.linalg.lstsq(A,B, rcond=None)[0][:3]
+        r = np.sqrt(ans[2]+np.power(ans[0],2)+np.power(ans[1],2))
+        # print(f"radius : {r}")
+        # print(f"ans : {ans}")
+        # print(f"ans : {ans[2]+np.power(ans[0],2)+np.power(ans[1],2)}")
+        
 
-
-        return np.linalg.lstsq(A,B, rcond=None)[0][:2]
+        return ans[:2],r
 
     def find_hole(self,pcd_original):
         # Preprocess pointcloud
@@ -331,11 +340,12 @@ class Hole_detector:
                                          ransac_n=3,
                                          num_iterations=1000)
 
+        pcdcen = pcdcen.select_by_index(inliers)
+        xyz = np.asarray(pcdcen.points)
+
         # find plane and project point to plane
         [a, b, c, d] = plane_model
         print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
-        pcdcen = pcdcen.select_by_index(inliers)
-        xyz = np.asarray(pcdcen.points)
         # d : distance to plan  n : Normal vector of plane
         d = (a*xyz[:,0]+b*xyz[:,1]+c*xyz[:,2]+d)/np.linalg.norm([a,b,c])
         n = np.array([a, b, c])/np.linalg.norm([a,b,c])
@@ -347,14 +357,38 @@ class Hole_detector:
         # pcdcen = pcdcen.voxel_down_sample(0.001)
         o3d.visualization.draw_geometries([pcdcen,Realcoor])
 
+        # Mesh Fill Hole process
+        pcdcen.estimate_normals()
+        normal = np.asarray(pcdcen.normals)
+        normal[normal[:,2]>0] *= -1
+        pcdcen.normals = o3d.utility.Vector3dVector(np.array(normal, dtype=np.float64))
+
+
+        rec_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
+            pcdcen, o3d.utility.DoubleVector([self.mesh_radius]))
+        
+        o3d.visualization.draw_geometries([pcdcen, rec_mesh])
+        o3d.visualization.draw_geometries([rec_mesh])
+        mesh_t = o3d.t.geometry.TriangleMesh.from_legacy(rec_mesh)
+        filled = mesh_t.fill_holes(hole_size= self.mesh_hole_size)
+        filled = filled.to_legacy()
+        o3d.visualization.draw_geometries([filled])
+        filled = filled.subdivide_midpoint(number_of_iterations=2)
+        o3d.visualization.draw_geometries([filled])
+        pcdcen.points = filled.vertices
+        pcdcen = pcdcen.voxel_down_sample(0.0008)
+        o3d.visualization.draw_geometries([pcdcen])
+
 
         # find boundarys in tensor
         pcd_t = o3d.t.geometry.PointCloud.from_legacy(pcdcen, o3d.core.float64)
-        pcd_t.estimate_normals(max_nn=30, radius=1.4*0.001)
+        pcd_t.estimate_normals(max_nn=30, radius=1.4*0.003)
 
-        boundarys, mask = pcd_t.compute_boundary_points(self.boundary_radius, self.boundary_max_nn)
+        boundarys, mask = pcd_t.compute_boundary_points(self.boundary_radius, 
+                                                        self.boundary_max_nn,
+                                                        angle_threshold = self.boundary_angle)
 
-        print(f"Detect {boundarys.point.positions.shape[0]} bnoundary points from {pcd_t.point.positions.shape[0]} points.")
+        # print(f"Detect {boundarys.point.positions.shape[0]} bnoundary points from {pcd_t.point.positions.shape[0]} points.")
 
         boundarys_pcd = boundarys.to_legacy()
 
@@ -362,20 +396,34 @@ class Hole_detector:
 
         holes = self.Cluster_hole(boundarys_pcd)
 
-        centers = []
+
+        tfm_plane = np.eye(4)
+        tfm_plane[:3,:3] = rotation_matrix_from_vectors([0,0,1],n)[0]
+        
+        centers_pcd = []
         center_point = []
         for i,hole in enumerate(holes):
-            # Need Transform to plane first
-            # [x,y] = circle_fiting(np.array(hole.points))
-            # center = [x,y,0]
+            tfm_plane[:3,3] = hole.points[0]
+            inv_tfm_plane = np.linalg.inv(tfm_plane)
+            hole.transform(inv_tfm_plane)
+            [x,y],r = self.circle_fiting(np.array(hole.points))
+            hole.transform(tfm_plane)
+
+            if r < 0.015: # Radius Lower Than 15cm
+                center = [x,y,0,1]
+                center = np.matmul(tfm_plane,center)[:3]
+                center_pcd = sphere(center[:3],radius = 0.001,color=[0,1,0]).pcd # Green if Fit
+            else:
+                center = hole.get_center()
+                center_pcd = sphere(center,radius = 0.001,color=[1,1,0]).pcd # Yellow if Centroid
+
+            center_point.append(center)
+            centers_pcd.append(center_pcd)
 
             color = np.random.randint(10, size=3)
-            center = hole.get_center()
-            center_point.append(center)
-            centers.append(sphere(center).pcd)
             holes[i].paint_uniform_color([color[0]/10, color[1]/10, color[2]/10])
-
-        o3d.visualization.draw_geometries(holes+centers+[pcd_original,Realcoor])
+            
+        o3d.visualization.draw_geometries(holes+centers_pcd+[pcd,Realcoor])
         return center_point,n
 
     def linePlaneIntersection(self, plane, rayDir):
@@ -503,7 +551,7 @@ while not rospy.is_shutdown():
 
         cen_point = []
         for cen in center_point:
-            cen_point.append(sphere([cen[0],cen[1],cen[2]],0.005).pcd)
+            cen_point.append(sphere([cen[0],cen[1],cen[2]],radius = 0.005).pcd)
 
         coors = []
         tfms = []
@@ -534,7 +582,7 @@ while not rospy.is_shutdown():
 
         off_set = []
         for tfm in tfms:
-            off_set.append(sphere([tfm[0,3],tfm[1,3],tfm[2,3]]).pcd)
+            off_set.append(sphere([tfm[0,3],tfm[1,3],tfm[2,3]],radius = 0.005).pcd)
         
         o3d.visualization.draw_geometries(off_set+[mergpcd,Realcoor])
 
