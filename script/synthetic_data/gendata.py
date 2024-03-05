@@ -75,8 +75,8 @@ def click_event(event, x, y, flags, params):
 
 
 # img = cv2.imread('/home/oongking/Research_ws/src/hole_detector/script/hikrobot/Image_Mat1.bmp',) 
-img = np.full((1200,1920),0,dtype=np.uint8)
-img[200:1000,440:1480] = 255
+img = np.full((1200,1920),255,dtype=np.uint8)
+# img[200:1000,440:1480] = 255
 cv2.imshow('img', img)
 cv2.setMouseCallback('img', click_event) 
 while True:

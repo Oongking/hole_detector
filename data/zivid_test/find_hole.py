@@ -121,11 +121,20 @@ def fixbox(rot,trans,z_offset,x = 0.4,y = 0.6 ,z = 0.1) :
 box = fixbox(Rx(15),[0.05, 0.05, 0.52],0,x=0.2,y=0.3,z = 0.3)
 
 
-pcd_original = o3d.io.read_point_cloud(f"/home/oongking/Research_ws/src/hole_detector/data/zivid_test/black0000.pcd")
+pcd_original = o3d.io.read_point_cloud(f"/home/oongking/Research_ws/src/hole_detector/data/zivid_test/alu0000.pcd")
 
 Realcoor = o3d.geometry.TriangleMesh.create_coordinate_frame(0.01,(0,0,0))
 
-# o3d.visualization.draw_geometries([pcd_original,Realcoor,box])
+o3d.visualization.draw_geometries([pcd_original,Realcoor,box])
+pcd_crop = pcd_original.crop(box)
+pcd_crop.estimate_normals()
+
+radii = [0.001]
+rec_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
+    pcd_crop, o3d.utility.DoubleVector(radii))
+o3d.visualization.draw_geometries([pcd_crop, rec_mesh])
+o3d.visualization.draw_geometries([rec_mesh])
+
 # pcd = pcd_original.crop(box)
 
 # o3d.visualization.draw_geometries([pcd,Realcoor,box])

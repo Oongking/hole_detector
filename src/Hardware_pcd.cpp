@@ -357,6 +357,17 @@ int main(int argc, char** argv)
         //     break;
         // }
 
+        nRet = MV_CC_SetBoolValue(handle, "HDREnable", false);
+        if (MV_OK == nRet)
+        {
+            printf("set HDREnable OK!\n\n");
+        }
+        else
+        {
+            printf("set HDREnable failed! nRet [%x]\n\n", nRet);
+        }
+
+
         float fExposureTime = 0.0f;
         if (nh.getParam("/Hardware_pcd/fExposureTime", fExposureTime)) {
             ROS_INFO("fExposureTime: %f", fExposureTime);
@@ -376,7 +387,34 @@ int main(int argc, char** argv)
         }
 
 
+        bool laser_tag = true;
+        if (nh.getParam("/Hardware_pcd/laser_tag", laser_tag)) {
+            ROS_INFO("laser_tag: %d", laser_tag);
+        } else {
+            ROS_ERROR("Failed to get parameter 'laser_tag'");
+            laser_tag = true;
+        }
 
+        nRet = MV_CC_SetBoolValue(handle, "LaserEnable", laser_tag);
+        if (MV_OK == nRet)
+        {
+            printf("set laser_tag OK!\n\n");
+        }
+        else
+        {
+            printf("set laser_tag failed! nRet [%x]\n\n", nRet);
+        }
+
+
+        bool pcd_tag = true;
+        if (nh.getParam("/Hardware_pcd/pcd_tag", pcd_tag)) {
+            ROS_INFO("pcd_tag: %d", pcd_tag);
+        } else {
+            ROS_ERROR("Failed to get parameter 'pcd_tag'");
+            pcd_tag = true;
+        }
+
+        
 
 
 
@@ -463,12 +501,13 @@ int main(int argc, char** argv)
                 // cv::waitKey(1);
                 sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", img).toImageMsg();
                 image_pub.publish(msg);
-
-                open3d::geometry::PointCloud pcd_out = calculate_pcd(img, param_value);
-                // std::shared_ptr<open3d::geometry::TriangleMesh> Realcoor = open3d::geometry::TriangleMesh::CreateCoordinateFrame(0.1);
-                // open3d::visualization::DrawGeometries({std::make_shared<open3d::geometry::PointCloud>(pcd_out),Realcoor});
-                sensor_msgs::PointCloud2 ros_pc2 = createPointCloud2Msg(pcd_out);
-                pointcloud_pub.publish(ros_pc2);
+                if (pcd_tag){
+                    open3d::geometry::PointCloud pcd_out = calculate_pcd(img, param_value);
+                    // std::shared_ptr<open3d::geometry::TriangleMesh> Realcoor = open3d::geometry::TriangleMesh::CreateCoordinateFrame(0.1);
+                    // open3d::visualization::DrawGeometries({std::make_shared<open3d::geometry::PointCloud>(pcd_out),Realcoor});
+                    sensor_msgs::PointCloud2 ros_pc2 = createPointCloud2Msg(pcd_out);
+                    pointcloud_pub.publish(ros_pc2);
+                }
 
             }
             else{

@@ -4,7 +4,7 @@ import copy
 
 # pcd = o3d.io.read_point_cloud('/home/oongking/Research_ws/src/hole_detector/data/room/method_test/test1.pcd')
 # pcd = o3d.io.read_point_cloud('/home/oongking/Research_ws/src/hole_detector/data/room/mock_test/filter_3cm.pcd')
-pcd = o3d.io.read_point_cloud('/home/oongking/Research_ws/src/hole_detector/data/room/mock_test/mock3cm_0.pcd')
+pcd = o3d.io.read_point_cloud('/home/oongking/Research_ws/src/hole_detector/data/room/mock_test/mock1cm_filter_0.pcd')
 
 
 
@@ -253,7 +253,6 @@ class Hole_detector:
 
         
 
-        centers = []
         center_point = []
         centers_fit = []
         for i,hole in enumerate(holes):
@@ -272,7 +271,7 @@ class Hole_detector:
             color = np.random.randint(10, size=3)
             if r > 0.015:
                 center = hole.get_center()
-            center_point.append(center)
+            center_point.append(center[:3])
 
             holes[i].paint_uniform_color([color[0]/10, color[1]/10, color[2]/10])
 
@@ -297,6 +296,13 @@ mergpcd = pcd
 # o3d.visualization.draw_geometries([mergpcd,Realcoor])
 
 center_point,plane_normal = hole_detector.find_hole(mergpcd)
+
+center_hole = o3d.geometry.PointCloud()
+center_hole.points = o3d.utility.Vector3dVector(np.array(center_point))
+o3d.visualization.draw_geometries([Realcoor,center_hole])
+
+o3d.io.write_point_cloud(f"/home/oongking/Research_ws/src/hole_detector/data/room/method_test/center_point_for_accuracy_test.pcd", center_hole)
+
 
 # center_point = np.asarray(center_point)
 # sort_i = np.argsort(center_point[:,2])
