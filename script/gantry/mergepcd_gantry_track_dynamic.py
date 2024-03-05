@@ -37,7 +37,7 @@ rospy.init_node('merge_pcd', anonymous=True)
 
 on_hardware = rospy.get_param("~on_hardware",True)
 scan_speed = rospy.get_param("~scan_speed",1.0)
-
+srv_tag = rospy.get_param("~srv_tag",True)
 
 if on_hardware:
     from gantry_proxy.srv import aim_pose
@@ -451,24 +451,23 @@ class Hole_detector:
         pcds = []
         
         labels = np.array(pcd.cluster_dbscan(eps = Clus_eps, min_points = Clus_min_points, print_progress=False))
-        
+        count = 0
         max_label = labels.max()
         for i in range(0,max_label+1):
             pcdcen = pcd.select_by_index(np.argwhere(labels==i))
             # pcdcen, ind = pcdcen.remove_statistical_outlier(nb_neighbors = Out_nb_neighbors,
             #                                             std_ratio = Out_std_ratio)
-            print("pcdcen : ",np.asarray(pcdcen.points).shape)
+            # print("pcdcen : ",np.asarray(pcdcen.points).shape)
             # print(f"pcdcen.get_max_bound() : {pcdcen.get_max_bound()}")
             # print(f"pcdcen.get_min_bound() : {pcdcen.get_min_bound()}")
             # print(f"np.linalg.norm(pcdcen.get_max_bound()-pcdcen.get_min_bound()) : {np.linalg.norm(pcdcen.get_max_bound()-pcdcen.get_min_bound())}")
             
-            
             if point_upper_limit >np.asarray(pcdcen.points).shape[0]>point_lower_limit and np.linalg.norm(pcdcen.get_max_bound()-pcdcen.get_min_bound()) < obj_size:
                 # o3d.visualization.draw_geometries([pcdcen])
-                
+                count +=1
                 pcdcen.estimate_normals()
                 pcds.append(pcdcen)
-
+        print(f"cluster count : {count}")
         return pcds
 
     def circle_fiting(self,points):
@@ -648,23 +647,27 @@ Realcoor = o3d.geometry.TriangleMesh.create_coordinate_frame(0.1,(0,0,0))
 
 
 def get_next_file_number(folder_path,name):
-    files = os.listdir(folder_path)
-    # print(name)
-    file_numbers = [int(file.split('.')[0][len(name):]) for file in files if file.startswith(name) and file.endswith('.pcd')]
+    try:
+        files = os.listdir(folder_path)
+        # print(name)
+        file_numbers = [int(file.split('.')[0][len(name):]) for file in files if file.startswith(name) and file.endswith('.pcd')]
+    except:
+        file_numbers = 0
     if file_numbers:
         return max(file_numbers) + 1
     else:
         return 0
     
-folder_path = os.path.join(rospkg.RosPack().get_path('hole_detector'), 'data','room','mock_test')
+folder_path = os.path.join(rospkg.RosPack().get_path('hole_detector'), 'data','onsite')
 
 data_name = f"mock{int(scan_speed)}cm_filter_"
 if on_hardware:
     num = get_next_file_number(folder_path,f"{data_name}")
+
 else:
     num = 0
-    data_name = "TEST_LOCAL"
-    scanner.merge_pcd = o3d.io.read_point_cloud('/home/oongking/Research_ws/src/hole_detector/data/room/mock_test/mock1cm_7.pcd')
+    data_name = "test_in"
+    scanner.merge_pcd = o3d.io.read_point_cloud('/home/irap/SCG_ws/src/hole_detector/data/onsite/test_in2.pcd')
 
 hole_detector = Hole_detector()
 
@@ -677,7 +680,7 @@ while not rospy.is_shutdown():
     if waitkeyboard & 0xFF==ord('a'):
         img = img*255
 
-        if on_hardware:
+        if srv_tag:
             scanning_srv(True)
 
         print("scanning")
@@ -688,7 +691,7 @@ while not rospy.is_shutdown():
             if waitkeyboard & 0xFF==ord('f'):
                 img = img = np.ones((50,50))
                 print("stop scanning")
-                if on_hardware:
+                if srv_tag:
                     set_zero_srv(True)
                 break
                 
@@ -701,23 +704,27 @@ while not rospy.is_shutdown():
         hole_detector.last_center_point = []
         hole_detector.last_sum_hole = o3d.geometry.PointCloud()
         
-        if on_hardware:
+        if srv_tag:
             set_zero_srv(True)
         print(f"Reset Next num : {num}")
 
     
     if waitkeyboard & 0xFF==ord('s'):
         mergpcd = scanner.get_mergpcd()
+        mergpcd = mergpcd.crop(scanner.limit_box)
         if not mergpcd.is_empty():
             o3d.visualization.draw_geometries([mergpcd,Realcoor])
             o3d.io.write_point_cloud(f"{folder_path}/{data_name}{num}.pcd", mergpcd)
-            scanner.reset()
+            # scanner.reset()
             num +=1
             print(f"Save {data_name}{num-1} Next num : {num}")
+            rospy.sleep(1)
         
     if waitkeyboard & 0xFF==ord('p'):
         mergpcd = scanner.get_mergpcd()
+        mergpcd = mergpcd.crop(scanner.limit_box)
         o3d.visualization.draw_geometries([mergpcd,Realcoor])
+        o3d.visualization.draw_geometries([mergpcd,Realcoor,hole_detector.box])
 
         # cam_coor = o3d.geometry.TriangleMesh.create_coordinate_frame(0.1,(0,0,0))
         # base2cam = scanner.get_feedback()
@@ -774,10 +781,10 @@ while not rospy.is_shutdown():
 
     if waitkeyboard & 0xFF==ord('t'):
         mergpcd_full = scanner.get_mergpcd()
-        o3d.visualization.draw_geometries([mergpcd_full,Realcoor,scanner.limit_box,hole_detector.box])
+        # o3d.visualization.draw_geometries([mergpcd_full,Realcoor,scanner.limit_box,hole_detector.box])
         mergpcd = mergpcd_full.crop(scanner.limit_box)
-        o3d.visualization.draw_geometries([mergpcd_full,Realcoor,hole_detector.box])
         o3d.visualization.draw_geometries([mergpcd,Realcoor,hole_detector.box])
+        # o3d.visualization.draw_geometries([mergpcd,Realcoor,hole_detector.box])
 
         center_point,plane_normal = hole_detector.find_hole(mergpcd)
 
@@ -826,7 +833,7 @@ while not rospy.is_shutdown():
  
             tfm_go = np.matmul(tfm,laser2eff)
             # control_cartesian_arm(tfm_go[:3,3],tfm_go[:3,:3])
-            if on_hardware:
+            if srv_tag:
                 aim_pose_srv((tfm_go[0,3]*1000)-0.004,-tfm_go[1,3]*1000)
             print("going")
 

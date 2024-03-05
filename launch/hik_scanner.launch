@@ -1,6 +1,7 @@
 <launch>
     <arg name="on_hardware" default="false" />
     <arg name="scan_speed" value="6.0" />
+    <arg name="srv_tag" default="true" />
 
     <!-- <group if="$(arg on_hardware)">
         <node name="gantry_proxy_node" pkg="gantry_proxy" type="gantry_proxy_node" output="screen">
@@ -50,6 +51,7 @@
     <node name="mergepcd_gantry_track" pkg="hole_detector" type="mergepcd_gantry_track_dynamic.py" output="screen">
         <param name="on_hardware" type="bool" value="$(arg on_hardware)"/>
         <param name="scan_speed" type="double" value="$(arg scan_speed)"/> 
+        <param name="srv_tag" type="bool" value="$(arg srv_tag)"/> 
 
 
         <!-- Box Pose/Size -->
