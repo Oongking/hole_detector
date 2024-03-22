@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   image_transport
   pcl_ros
+  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -123,7 +124,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 
 include_directories(
-# include
+  include
   ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
@@ -224,6 +225,10 @@ add_executable(line_scan src/line_scan.cpp)
 add_dependencies(line_scan ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(line_scan ${catkin_LIBRARIES} ${OpenCV_INCLUDE_DIRS} ${Eigen3_LIBRARIES} ${PCL_INCLUDE_DIRS} Open3D::Open3D) 
 
+add_executable(test_medthod src/test_medthod.cpp)
+add_dependencies(test_medthod ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(test_medthod ${catkin_LIBRARIES} ${OpenCV_INCLUDE_DIRS} ${Eigen3_LIBRARIES} ${PCL_INCLUDE_DIRS} Open3D::Open3D) 
+
 link_directories(
   ${MVCAM_COMMON_RUNENV}/64
 )
@@ -238,5 +243,19 @@ target_link_libraries(Hardware_pcd
                       /opt/MVS/lib/64/libMvCameraControl.so
                       pthread
                       Open3D::Open3D) 
+
+
+add_executable(test_serial src/test_serial.cpp)
+add_dependencies(test_serial ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(test_serial
+  ${catkin_LIBRARIES}
+)
+
+add_executable(fastus_serial src/fastus_serial.cpp src/AsyncSerial.cpp)
+add_dependencies(fastus_serial ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
+target_link_libraries(fastus_serial
+  ${catkin_LIBRARIES}
+)
 
 

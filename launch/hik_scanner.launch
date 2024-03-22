@@ -1,7 +1,7 @@
 <launch>
     <arg name="on_hardware" default="false" />
     <arg name="scan_speed" value="6.0" />
-    <arg name="srv_tag" default="true" />
+    <arg name="srv_tag" default="false" />
 
     <!-- <group if="$(arg on_hardware)">
         <node name="gantry_proxy_node" pkg="gantry_proxy" type="gantry_proxy_node" output="screen">
@@ -18,16 +18,24 @@
         <param name="fExposureTime" type="double" value="1"/>
         <param name="laser_tag" type="bool" value="true"/>
         <param name="pcd_tag" type="bool" value="true"/>
+        <param name="min_limit_dis" type="double" value="0.6"/>
+        <param name="max_limit_dis" type="double" value="2.5"/>
+        
         
     </node> 
-    
     <!-- Box Pose/Size -->
     <arg name="box_posx"                value="0.2"/>
+    <arg name="box_posy"                value="-0.22"/>
+    <arg name="box_posz"                value="0.65"/>
+    <arg name="box_sizex"               value="0.5"/>
+    <arg name="box_sizey"               value="0.2"/>
+    <arg name="box_sizez"               value="0.1"/>
+    <!-- <arg name="box_posx"                value="0.2"/>
     <arg name="box_posy"                value="-0.22"/>
     <arg name="box_posz"                value="0.88"/>
     <arg name="box_sizex"               value="0.5"/>
     <arg name="box_sizey"               value="0.5"/>
-    <arg name="box_sizez"               value="0.1"/>
+    <arg name="box_sizez"               value="0.1"/> -->
     <!-- Remove Outlier From Raw Pointcloud -->
     <arg name="stat_outlier_nb"         value="10"/>
     <arg name="stat_outlier_std_ratio"  value="4.0"/>
@@ -48,7 +56,9 @@
     <arg name="clus_size_limit"         value="0.05"/>
 
 
-    <node name="mergepcd_gantry_track" pkg="hole_detector" type="mergepcd_gantry_track_dynamic.py" output="screen">
+
+    <!-- <node name="mergepcd_gantry_track" pkg="hole_detector" type="mergepcd_gantry_track_dynamic.py" output="screen"> -->
+    <node name="mergepcd_gantry_track" pkg="hole_detector" type="mergepcd_gantry_track_dynamic_ai.py" output="screen">
         <param name="on_hardware" type="bool" value="$(arg on_hardware)"/>
         <param name="scan_speed" type="double" value="$(arg scan_speed)"/> 
         <param name="srv_tag" type="bool" value="$(arg srv_tag)"/> 
@@ -82,34 +92,6 @@
 
     </node> 
     
-    <!-- <node name="preview_process" pkg="hole_detector" type="preview_process.py" output="screen">
-        Box Pose/Size
-        <param name="box_posx"                      type="double"   value="$(arg box_posx)"/>
-        <param name="box_posy"                      type="double"   value="$(arg box_posy)"/>
-        <param name="box_posz"                      type="double"   value="$(arg box_posz)"/>
-        <param name="box_sizex"                     type="double"   value="$(arg box_sizex)"/>
-        <param name="box_sizey"                     type="double"   value="$(arg box_sizey)"/>
-        <param name="box_sizez"                     type="double"   value="$(arg box_sizez)"/>
-        Remove Outlier From Raw Pointcloud
-        <param name="stat_outlier_nb"               type="int"      value="$(arg stat_outlier_nb)"/>
-        <param name="stat_outlier_std_ratio"        type="double"   value="$(arg stat_outlier_std_ratio)"/>
-        Plane Threshold Distance
-        <param name="plane_thres"                   type="double"   value="$(arg plane_thres)"/>
-        Mesh Radius Fill
-        <param name="mesh_radius"                   type="double"   value="$(arg mesh_radius)"/>
-        <param name="mesh_hole_size"                type="double"   value="$(arg mesh_hole_size)"/>
-        Boundary Config
-        <param name="boundary_radius"               type="double"   value="$(arg boundary_radius)"/>
-        <param name="boundary_max_nn"               type="int"      value="$(arg boundary_max_nn)"/>
-        <param name="boundary_angle"                type="int"      value="$(arg boundary_angle)"/>
-        Cluster Config
-        <param name="clus_radius"                   type="double"   value="$(arg clus_radius)"/>
-        <param name="clus_min_points"               type="int"      value="$(arg clus_min_points)"/>
-        <param name="clus_point_up_limit"           type="int"      value="$(arg clus_point_up_limit)"/>
-        <param name="clus_point_low_limit"          type="int"      value="$(arg clus_point_low_limit)"/>
-        <param name="clus_size_limit"               type="double"   value="$(arg clus_size_limit)"/>
-    </node>  -->
-
 
     <!-- <node name = "rqt_gui" pkg = "rqt_gui" type = "rqt_gui" respawn = "false" output = "screen" 
             args = "-perspective $(find hole_detector)/rqt_config/command_hole.perspective"/> -->

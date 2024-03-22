@@ -43,6 +43,32 @@ cv::Mat resizePercent(const cv::Mat& img, double scalePercent) {
     return resized;
 }
 
+int find_point_on_plane(double dis) {
+    const std::vector<double>& pOrigin = ray_plane_origin;
+    const std::vector<double>& pNormal = ray_plane_normal;
+
+    // std::cout << "pOrigin : ";
+    // for (const auto& val : pOrigin)
+    //     std::cout << val << " ";
+    // std::cout << std::endl;
+
+    // std::cout << "pNormal : ";
+    // for (const auto& val : pNormal)
+    //     std::cout << val << " ";
+    // std::cout << std::endl;
+
+    double y = (pNormal[2] * dis - pNormal[0] * pOrigin[0] - pNormal[1] * pOrigin[1] - pNormal[2] * pOrigin[2]) / (-pNormal[1]);
+    // std::cout << "y : " << y << std::endl;
+
+    std::vector<double> point = {0, y, dis};
+
+    std::vector<cv::Point2d> imagePoints;
+    cv::projectPoints(point, cv::Vec3d(0, 0, 0), cv::Vec3d(0, 0, 0), cameraMatrix, distCoeffs, imagePoints);
+    // std::cout << "imagePoints x : "<< int(imagePoints[0].x) << "y : "<< int(imagePoints[0].y) <<std::endl;
+
+    return int(imagePoints[0].y);
+}
+
 
 bool PrintDeviceInfo(MV_CC_DEVICE_INFO* pstMVDevInfo)
 {
@@ -100,7 +126,7 @@ sensor_msgs::PointCloud2 createPointCloud2Msg(const open3d::geometry::PointCloud
 }
 
 
-open3d::geometry::PointCloud calculate_pcd(cv::Mat& cb_img, int& param_value){
+open3d::geometry::PointCloud calculate_pcd(cv::Mat& cb_img, int& param_value, float& min, float& max){
 
     cv::Mat imageUndistorted; // Will be the undistorted version of the above image.
     undistort(cb_img, imageUndistorted, cameraMatrix, distCoeffs);
@@ -109,6 +135,25 @@ open3d::geometry::PointCloud calculate_pcd(cv::Mat& cb_img, int& param_value){
     cv::threshold(imageUndistorted,thres_img,param_value,255,cv::THRESH_BINARY);
     // cv::imshow("test", resizePercent(thres_img,50));
     // cv::waitKey(0);
+
+    // limit min dis
+    int min_limit = find_point_on_plane(static_cast<double>(min));
+    for (int y = 0; y < min_limit; ++y) {
+        uchar* rowPtr = thres_img.ptr<uchar>(y);
+        for (int x = 0; x < thres_img.cols; ++x) {
+            rowPtr[x] = 0;
+        }
+    }
+
+    // limit max dis
+    int max_limit = find_point_on_plane(static_cast<double>(max));
+    for (int y = 1200; y > max_limit ; --y) {
+        uchar* rowPtr = thres_img.ptr<uchar>(y);
+        for (int x = 0; x < thres_img.cols; ++x) {
+            rowPtr[x] = 0;
+        }
+    }
+
 
     cv::Mat final;
     cv::Mat kernel4 = cv::Mat::ones(4, 4, CV_8U);
@@ -415,7 +460,16 @@ int main(int argc, char** argv)
         }
 
         
+        float min_limit_dis = 0.6f;
+        if (nh.getParam("/Hardware_pcd/min_limit_dis", min_limit_dis)) {
+            ROS_INFO("min_limit_dis: %f", min_limit_dis);
+        }
 
+        float max_limit_dis = 2.5f;
+        if (nh.getParam("H/ardware_pcd/max_limit_dis", max_limit_dis)) {
+            ROS_INFO("max_limit_dis: %f", max_limit_dis);
+        }
+        
 
 
 		
@@ -502,7 +556,7 @@ int main(int argc, char** argv)
                 sensor_msgs::ImagePtr msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", img).toImageMsg();
                 image_pub.publish(msg);
                 if (pcd_tag){
-                    open3d::geometry::PointCloud pcd_out = calculate_pcd(img, param_value);
+                    open3d::geometry::PointCloud pcd_out = calculate_pcd(img, param_value, min_limit_dis, max_limit_dis);
                     // std::shared_ptr<open3d::geometry::TriangleMesh> Realcoor = open3d::geometry::TriangleMesh::CreateCoordinateFrame(0.1);
                     // open3d::visualization::DrawGeometries({std::make_shared<open3d::geometry::PointCloud>(pcd_out),Realcoor});
                     sensor_msgs::PointCloud2 ros_pc2 = createPointCloud2Msg(pcd_out);
